@@ -1,20 +1,157 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <title>Fetch /terms Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AJAX Demo with Tailwind</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <h1>Fetch https://mil.psy.ntu.edu.tw:5000/terms</h1>
-  <button id="btn">Fetch again</button>
-  <pre id="out">Loading…</pre>
+
+<body class="bg-gray-50 font-sans">
+
+  <div class="flex max-w-screen-lg mx-auto p-6 space-x-6">
+
+    <!-- Left Panel (Search options) -->
+    <div class="w-1/3 bg-white p-4 rounded-lg shadow-md">
+      <h2 class="text-xl font-semibold text-gray-800">Search Options</h2>
+      <div class="mt-4">
+        <button id="fetch-terms-btn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 focus:outline-none w-full">
+          Fetch All Terms
+        </button>
+      </div>
+      <div class="mt-4">
+        <input id="term-input" type="text" class="p-2 border border-gray-300 rounded w-full" placeholder="Enter a term..." oninput="fetchTermSuggestions()" />
+        <ul id="term-suggestions" class="bg-white border border-gray-300 rounded mt-2 max-h-48 overflow-y-auto">
+          <!-- Suggestions will appear here -->
+        </ul>
+        <button id="fetch-term-btn" class="bg-green-500 text-white px-4 py-2 rounded mt-2 w-full hover:bg-green-600 focus:outline-none">
+          Fetch Term Details
+        </button>
+      </div>
+
+      <div class="mt-4">
+        <label class="block font-medium mb-1">Study Search</label>
+        <div id="multi-search-boxes">
+          <div class="flex items-center mb-2">
+            <div class="flex-1">
+              <input type="text" id="study-term-0" class="study-term-input p-2 border border-gray-300 rounded w-full" placeholder="Enter term..." autocomplete="off" />
+              <ul id="study-suggestions-0" class="bg-white border border-gray-300 rounded mt-1 max-h-32 overflow-y-auto absolute z-10"></ul>
+            </div>
+          </div>
+          <div class="flex items-center mb-2">
+            <select id="logic-1" class="logic-select p-2 border border-gray-300 rounded mx-2">
+              <option value="and">AND</option>
+              <option value="or">OR</option>
+              <option value="not">NOT</option>
+            </select>
+            <div class="flex-1">
+              <input type="text" id="study-term-1" class="study-term-input p-2 border border-gray-300 rounded w-full" placeholder="Enter term..." autocomplete="off" />
+              <ul id="study-suggestions-1" class="bg-white border border-gray-300 rounded mt-1 max-h-32 overflow-y-auto absolute z-10"></ul>
+            </div>
+          </div>
+          <div class="flex items-center mb-2">
+            <select id="logic-2" class="logic-select p-2 border border-gray-300 rounded mx-2">
+              <option value="and">AND</option>
+              <option value="or">OR</option>
+              <option value="not">NOT</option>
+            </select>
+            <div class="flex-1">
+              <input type="text" id="study-term-2" class="study-term-input p-2 border border-gray-300 rounded w-full" placeholder="Enter term..." autocomplete="off" />
+              <ul id="study-suggestions-2" class="bg-white border border-gray-300 rounded mt-1 max-h-32 overflow-y-auto absolute z-10"></ul>
+            </div>
+          </div>
+          <div class="flex items-center mb-2">
+            <select id="logic-3" class="logic-select p-2 border border-gray-300 rounded mx-2">
+              <option value="and">AND</option>
+              <option value="or">OR</option>
+              <option value="not">NOT</option>
+            </select>
+            <div class="flex-1">
+              <input type="text" id="study-term-3" class="study-term-input p-2 border border-gray-300 rounded w-full" placeholder="Enter term..." autocomplete="off" />
+              <ul id="study-suggestions-3" class="bg-white border border-gray-300 rounded mt-1 max-h-32 overflow-y-auto absolute z-10"></ul>
+            </div>
+          </div>
+          <div class="flex items-center mb-2">
+            <select id="logic-4" class="logic-select p-2 border border-gray-300 rounded mx-2">
+              <option value="and">AND</option>
+              <option value="or">OR</option>
+              <option value="not">NOT</option>
+            </select>
+            <div class="flex-1">
+              <input type="text" id="study-term-4" class="study-term-input p-2 border border-gray-300 rounded w-full" placeholder="Enter term..." autocomplete="off" />
+              <ul id="study-suggestions-4" class="bg-white border border-gray-300 rounded mt-1 max-h-32 overflow-y-auto absolute z-10"></ul>
+            </div>
+          </div>
+        </div>
+        <button id="multi-fetch-query-btn" class="bg-yellow-500 text-white px-4 py-2 rounded mt-2 w-full hover:bg-yellow-600 focus:outline-none">
+          Search Studies
+        </button>
+      </div>
+
+      <div class="mt-6">
+        <h3 class="text-lg font-semibold text-gray-700">Results per Page</h3>
+        <select id="results-per-page" class="p-2 mt-2 border border-gray-300 rounded w-full">
+          <option value="10">10 Results</option>
+          <option value="50">50 Results</option>
+          <option value="100">100 Results</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Right Panel (Search results) -->
+    <div class="w-2/3 bg-white p-4 rounded-lg shadow-md">
+      <div id="search-content">
+        <h2 class="text-xl font-semibold text-gray-800">Search Results</h2>
+        <div class="flex items-center mb-2">
+          <label for="study-results-per-page" class="mr-2">Results per page:</label>
+          <select id="study-results-per-page" class="p-2 border border-gray-300 rounded">
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+        <div id="study-table-container"></div>
+        <div id="study-pagination" class="mt-2 flex gap-2"></div>
+        <pre id="out" class="bg-gray-100 p-4 rounded text-sm text-gray-700 mt-4"></pre>
+      </div>
+    </div>
+
+  </div>
 
   <script>
+  let currentPage = 1;
+  let resultsPerPage = 10;
+  let allTerms = [];
+
+    // Fetch all terms for suggestions (on page load, no results shown)
+    async function fetchAllTermsForSuggestions() {
+      try {
+        const resp = await fetch('https://mil.psy.ntu.edu.tw:5000/terms');
+        if (!resp.ok) return;
+        const ct = resp.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+          const data = await resp.json();
+          if (Array.isArray(data)) {
+            allTerms = data;
+          } else if (data && Array.isArray(data.terms)) {
+            allTerms = data.terms;
+          } else {
+            allTerms = [];
+          }
+        }
+      } catch (err) {
+        // Silently fail, suggestions will just not appear
+      }
+    }
+
+    // Fetch all terms for results (button click)
     async function fetchTerms() {
       const out = document.getElementById('out');
       out.textContent = 'Requesting…';
       try {
-        const resp = await fetch('https://mil.psy.ntu.edu.tw:5000/terms');
+        const resp = await fetch(`https://mil.psy.ntu.edu.tw:5000/terms?page=${currentPage}&per_page=${resultsPerPage}`);
         let info = `HTTP ${resp.status} ${resp.statusText}\n`;
         const ct = resp.headers.get('content-type') || '';
 
@@ -38,9 +175,233 @@
       }
     }
 
-    document.getElementById('btn').addEventListener('click', fetchTerms);
-    fetchTerms();
-  </script>
-</body>
-</html>
+    // Fetch term suggestions based on user input (real-time feedback)
+    function fetchTermSuggestions() {
+      const termInput = document.getElementById('term-input').value.trim().toLowerCase();
+      const suggestionsList = document.getElementById('term-suggestions');
+      suggestionsList.innerHTML = '';
 
+      if (termInput.length === 0 || allTerms.length === 0) {
+        return;
+      }
+
+      const filteredTerms = allTerms.filter(term => term.toLowerCase().startsWith(termInput));
+
+      filteredTerms.forEach(term => {
+        const suggestionItem = document.createElement('li');
+        suggestionItem.textContent = term;
+        suggestionItem.classList.add('p-2', 'cursor-pointer', 'hover:bg-gray-200');
+        suggestionItem.addEventListener('mousedown', (e) => {
+          // Use mousedown instead of click to avoid input blur
+          e.preventDefault();
+          document.getElementById('term-input').value = term;
+          suggestionsList.innerHTML = '';
+          fetchTermDetails();
+        });
+        suggestionsList.appendChild(suggestionItem);
+      });
+    }
+
+    // Fetch specific term details
+    async function fetchTermDetails() {
+      const term = document.getElementById('term-input').value.trim();
+      const out = document.getElementById('out');
+      if (!term) {
+        out.textContent = 'Please enter a term to fetch details.';
+        return;
+      }
+      out.textContent = 'Requesting…';
+      try {
+        const resp = await fetch(`https://mil.psy.ntu.edu.tw:5000/terms/${term}`);
+        let info = `HTTP ${resp.status} ${resp.statusText}\n`;
+        const ct = resp.headers.get('content-type') || '';
+
+        if (!resp.ok) {
+          const text = await resp.text();
+          out.textContent = info + '\n' + text;
+          return;
+        }
+
+        if (ct.includes('application/json')) {
+          const data = await resp.json();
+          out.textContent = info + '\n' + JSON.stringify(data, null, 2);
+        } else {
+          const text = await resp.text();
+          out.textContent = info + '\n' + text;
+        }
+      } catch (err) {
+        out.textContent = 'Error: ' + (err && err.message ? err.message : String(err));
+      }
+    }
+
+    // Multi-term study search with logic
+    function buildMultiTermQuery() {
+      let query = '';
+      for (let i = 0; i < 5; i++) {
+        const term = document.getElementById(`study-term-${i}`).value.trim();
+        if (term) {
+          if (query) {
+            const logic = document.getElementById(`logic-${i}`).value;
+            query += ` ${logic} `;
+          }
+          query += term;
+        }
+      }
+      return query;
+    }
+
+
+    // Table rendering and pagination for study results
+    let studyResults = [];
+    let studyResultsPage = 1;
+    let studyResultsPerPage = 10;
+
+    function renderStudyTable() {
+      const container = document.getElementById('study-table-container');
+      const pagination = document.getElementById('study-pagination');
+      container.innerHTML = '';
+      pagination.innerHTML = '';
+      if (!studyResults || studyResults.length === 0) {
+        container.innerHTML = '<div class="text-gray-500">No results to display.</div>';
+        return;
+      }
+      const start = (studyResultsPage - 1) * studyResultsPerPage;
+      const end = Math.min(start + studyResultsPerPage, studyResults.length);
+      const pageResults = studyResults.slice(start, end);
+      let table = '<table class="min-w-full text-sm text-left border"><thead><tr>';
+      table += '<th class="border px-2 py-1">Title</th>';
+      table += '<th class="border px-2 py-1">Authors</th>';
+      table += '<th class="border px-2 py-1">Journal</th>';
+      table += '<th class="border px-2 py-1">Year</th>';
+      table += '</tr></thead><tbody>';
+      for (const row of pageResults) {
+        table += `<tr>
+          <td class="border px-2 py-1">${row.title || ''}</td>
+          <td class="border px-2 py-1">${row.authors || ''}</td>
+          <td class="border px-2 py-1">${row.journal || ''}</td>
+          <td class="border px-2 py-1">${row.year || ''}</td>
+        </tr>`;
+      }
+      table += '</tbody></table>';
+      container.innerHTML = table;
+
+      // Pagination controls
+      const totalPages = Math.ceil(studyResults.length / studyResultsPerPage);
+      if (totalPages > 1) {
+        for (let i = 1; i <= totalPages; i++) {
+          const btn = document.createElement('button');
+          btn.textContent = i;
+          btn.className = 'px-2 py-1 rounded border ' + (i === studyResultsPage ? 'bg-blue-500 text-white' : 'bg-white text-blue-500');
+          btn.addEventListener('click', () => {
+            studyResultsPage = i;
+            renderStudyTable();
+          });
+          pagination.appendChild(btn);
+        }
+      }
+    }
+
+    async function fetchMultiQueryStudies() {
+      const query = buildMultiTermQuery();
+      const out = document.getElementById('out');
+      document.getElementById('study-table-container').innerHTML = '';
+      document.getElementById('study-pagination').innerHTML = '';
+      if (!query) {
+        out.textContent = 'Please enter at least one term to search studies.';
+        return;
+      }
+      out.textContent = 'Requesting…';
+      try {
+        const resp = await fetch(`https://mil.psy.ntu.edu.tw:5000/query/${encodeURIComponent(query)}/studies`);
+        let info = `HTTP ${resp.status} ${resp.statusText}\n`;
+        const ct = resp.headers.get('content-type') || '';
+
+        if (!resp.ok) {
+          const text = await resp.text();
+          out.textContent = info + '\n' + text;
+          return;
+        }
+
+        if (ct.includes('application/json')) {
+          const data = await resp.json();
+          if (Array.isArray(data.results)) {
+            studyResults = data.results;
+            studyResultsPage = 1;
+            renderStudyTable();
+            out.textContent = '';
+          } else {
+            studyResults = [];
+            renderStudyTable();
+            out.textContent = info + '\nNo results.';
+          }
+        } else {
+          const text = await resp.text();
+          out.textContent = info + '\n' + text;
+        }
+      } catch (err) {
+        out.textContent = 'Error: ' + (err && err.message ? err.message : String(err));
+      }
+    }
+    // Results per page selector for study table
+    document.getElementById('study-results-per-page').addEventListener('change', (e) => {
+      studyResultsPerPage = parseInt(e.target.value, 10);
+      studyResultsPage = 1;
+      renderStudyTable();
+    });
+
+
+    // Event listeners for buttons
+    document.getElementById('fetch-terms-btn').addEventListener('click', () => {
+      document.getElementById('out').textContent = '';
+      fetchTerms();
+    });
+    document.getElementById('fetch-term-btn').addEventListener('click', () => {
+      document.getElementById('out').textContent = '';
+      fetchTermDetails();
+    });
+    document.getElementById('multi-fetch-query-btn').addEventListener('click', () => {
+      document.getElementById('out').textContent = '';
+      fetchMultiQueryStudies();
+    });
+    // Real-time suggestions for each study search box
+    function setupMultiTermSuggestions() {
+      for (let i = 0; i < 5; i++) {
+        const input = document.getElementById(`study-term-${i}`);
+        const suggestionsList = document.getElementById(`study-suggestions-${i}`);
+        input.addEventListener('input', function () {
+          const value = input.value.trim().toLowerCase();
+          suggestionsList.innerHTML = '';
+          if (value.length === 0 || allTerms.length === 0) return;
+          const filteredTerms = allTerms.filter(term => term.toLowerCase().startsWith(value));
+          filteredTerms.slice(0, 20).forEach(term => {
+            const suggestionItem = document.createElement('li');
+            suggestionItem.textContent = term;
+            suggestionItem.classList.add('p-2', 'cursor-pointer', 'hover:bg-gray-200');
+            suggestionItem.addEventListener('mousedown', (e) => {
+              e.preventDefault();
+              input.value = term;
+              suggestionsList.innerHTML = '';
+            });
+            suggestionsList.appendChild(suggestionItem);
+          });
+        });
+        // Hide suggestions on blur
+        input.addEventListener('blur', function () {
+          setTimeout(() => { suggestionsList.innerHTML = ''; }, 100);
+        });
+      }
+    }
+
+    // Change results per page
+    document.getElementById('results-per-page').addEventListener('change', (e) => {
+      resultsPerPage = e.target.value;
+      // Do not auto-fetch terms, just update value
+    });
+
+  // On page load, fetch all terms for suggestions only (no results shown)
+  fetchAllTermsForSuggestions().then(setupMultiTermSuggestions);
+  </script>
+
+</body>
+
+</html>
