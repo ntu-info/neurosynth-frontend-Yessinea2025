@@ -16,22 +16,27 @@
     <div class="w-1/3 bg-white p-4 rounded-lg shadow-md">
       <h2 class="text-xl font-semibold text-gray-800">Search Options</h2>
       <div class="mt-4">
+        <div class="font-semibold text-gray-700 mb-2">Search all available terms</div>
         <button id="fetch-terms-btn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 focus:outline-none w-full">
           Fetch All Terms
         </button>
+        <hr class="my-4 border-gray-300" />
       </div>
       <div class="mt-4">
+        <div class="font-semibold text-gray-700 mb-2">Search associated terms</div>
         <input id="term-input" type="text" class="p-2 border border-gray-300 rounded w-full" placeholder="Enter a term..." oninput="fetchTermSuggestions()" />
-        <ul id="term-suggestions" class="bg-white border border-gray-300 rounded mt-2 max-h-48 overflow-y-auto">
+        <ul id="term-suggestions">
           <!-- Suggestions will appear here -->
         </ul>
         <button id="fetch-term-btn" class="bg-green-500 text-white px-4 py-2 rounded mt-2 w-full hover:bg-green-600 focus:outline-none">
           Fetch Term Details
         </button>
+        <hr class="my-4 border-gray-300" />
       </div>
 
       <div class="mt-4">
-        <label class="block font-medium mb-1">Study Search</label>
+        <div class="font-semibold text-gray-700 mb-2">Logical study search</div>
+        <!-- <label class="block font-medium mb-1">Study Search</label> -->
         <div id="multi-search-boxes">
           <div class="flex items-center mb-2">
             <div class="flex-1">
@@ -89,21 +94,30 @@
         </button>
       </div>
 
-      <div class="mt-6">
-        <h3 class="text-lg font-semibold text-gray-700">Results per Page</h3>
-        <select id="results-per-page" class="p-2 mt-2 border border-gray-300 rounded w-full">
-          <option value="10">10 Results</option>
-          <option value="50">50 Results</option>
-          <option value="100">100 Results</option>
-        </select>
-      </div>
     </div>
 
     <!-- Right Panel (Search results) -->
     <div class="w-2/3 bg-white p-4 rounded-lg shadow-md">
       <div id="search-content">
         <h2 class="text-xl font-semibold text-gray-800">Search Results</h2>
-        <div class="flex items-center mb-2">
+        <div id="total-results" class="mb-2 text-blue-700 font-semibold"></div>
+        <div id="table-controls" class="flex items-center mb-2" style="display:none">
+          <div class="flex flex-col w-full">
+            <div id="alphabet-filter" class="flex flex-wrap items-center mb-2" style="display:none"></div>
+            <div class="flex items-center">
+              <label for="table-results-per-page" class="mr-2">Results per page:</label>
+              <select id="table-results-per-page" class="p-2 border border-gray-300 rounded">
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div id="table-container" style="display:none"></div>
+        <div id="table-pagination" class="mt-2 flex gap-2" style="display:none"></div>
+        <div id="study-controls" class="flex items-center mb-2">
           <label for="study-results-per-page" class="mr-2">Results per page:</label>
           <select id="study-results-per-page" class="p-2 border border-gray-300 rounded">
             <option value="10">10</option>
@@ -114,13 +128,146 @@
         </div>
         <div id="study-table-container"></div>
         <div id="study-pagination" class="mt-2 flex gap-2"></div>
-        <pre id="out" class="bg-gray-100 p-4 rounded text-sm text-gray-700 mt-4"></pre>
       </div>
     </div>
 
   </div>
 
   <script>
+    // Unified table rendering for Fetch All Terms and Fetch Term Details
+    let tableData = [];
+    let tableColumns = [];
+    let tablePage = 1;
+    let tableResultsPerPage = 10;
+
+    let alphabetFilter = '';
+    function renderTable() {
+      // Hide study table and controls, show terms/results table and controls
+      document.getElementById('study-table-container').style.display = 'none';
+      document.getElementById('study-pagination').style.display = 'none';
+      document.getElementById('study-controls').style.display = 'none';
+      document.getElementById('table-container').style.display = '';
+      document.getElementById('table-pagination').style.display = '';
+      document.getElementById('table-controls').style.display = '';
+      const container = document.getElementById('table-container');
+      const pagination = document.getElementById('table-pagination');
+      const controls = document.getElementById('table-controls');
+      const totalDiv = document.getElementById('total-results');
+      const alphabetDiv = document.getElementById('alphabet-filter');
+      // Show alphabet filter only for Fetch All Terms (when tableColumns is just 'Term')
+      if (tableColumns.length === 1 && tableColumns[0].key === 'term') {
+        alphabetDiv.style.display = '';
+        renderAlphabetFilter();
+      } else {
+        alphabetDiv.style.display = 'none';
+      }
+      container.innerHTML = '';
+      pagination.innerHTML = '';
+      // controls.innerHTML = '';
+      // Filter tableData by alphabet if set
+      let filteredData = tableData;
+      if (alphabetFilter) {
+        filteredData = tableData.filter(row => row.term && row.term[0] && row.term[0].toUpperCase() === alphabetFilter);
+      }
+      totalDiv.textContent = `Total results: ${filteredData.length}`;
+      if (!filteredData || filteredData.length === 0) {
+        container.innerHTML = '<div class="text-gray-500">No results to display.</div>';
+        return;
+      }
+      const start = (tablePage - 1) * tableResultsPerPage;
+      const end = Math.min(start + tableResultsPerPage, filteredData.length);
+      const pageResults = filteredData.slice(start, end);
+      let table = '<table class="min-w-full text-sm text-left border"><thead><tr>';
+      for (const col of tableColumns) {
+        table += `<th class="border px-2 py-1">${col.label}</th>`;
+      }
+      table += '</tr></thead><tbody>';
+      for (const row of pageResults) {
+        table += '<tr>';
+        for (const col of tableColumns) {
+          table += `<td class="border px-2 py-1">${row[col.key] || ''}</td>`;
+        }
+        table += '</tr>';
+      }
+      table += '</tbody></table>';
+      container.innerHTML = table;
+      // Pagination controls (dynamic, max 8 page buttons + ellipsis, word wrap)
+      pagination.style.flexWrap = 'wrap';
+      const totalPages = Math.ceil(filteredData.length / tableResultsPerPage);
+      if (totalPages > 1) {
+        const maxButtons = 8;
+        let start, end;
+        if (totalPages <= maxButtons) {
+          start = 1;
+          end = totalPages;
+        } else {
+          if (tablePage <= 4) {
+            start = 1;
+            end = maxButtons - 1;
+          } else if (tablePage >= totalPages - 3) {
+            start = totalPages - (maxButtons - 2);
+            end = totalPages - 1;
+          } else {
+            start = tablePage - 3;
+            end = tablePage + 2;
+          }
+        }
+
+        // Always show first page
+        createPageButton(1);
+        if (start > 2) pagination.appendChild(createEllipsis());
+
+        for (let i = start; i <= end; i++) {
+          if (i > 1 && i < totalPages) createPageButton(i);
+        }
+
+        if (end < totalPages - 1) pagination.appendChild(createEllipsis());
+        if (totalPages > 1) createPageButton(totalPages);
+      }
+
+      function createPageButton(i) {
+        const btn = document.createElement('button');
+        btn.textContent = i;
+        btn.className = 'px-2 py-1 rounded border ' + (i === tablePage ? 'bg-blue-500 text-white' : 'bg-white text-blue-500');
+        btn.addEventListener('click', () => {
+          tablePage = i;
+          renderTable();
+        });
+        pagination.appendChild(btn);
+      }
+
+      function createEllipsis() {
+        const span = document.createElement('span');
+        span.textContent = '...';
+        span.className = 'px-2 text-gray-500';
+        return span;
+      }
+
+      function renderAlphabetFilter() {
+        alphabetDiv.innerHTML = '';
+        const allBtn = document.createElement('button');
+        allBtn.textContent = 'All';
+        allBtn.className = 'px-2 py-1 rounded border mr-1 mb-1 ' + (!alphabetFilter ? 'bg-blue-500 text-white' : 'bg-white text-blue-500');
+        allBtn.addEventListener('click', () => {
+          alphabetFilter = '';
+          tablePage = 1;
+          renderTable();
+        });
+        alphabetDiv.appendChild(allBtn);
+        for (let i = 65; i <= 90; i++) {
+          const letter = String.fromCharCode(i);
+          const btn = document.createElement('button');
+          btn.textContent = letter;
+          btn.className = 'px-2 py-1 rounded border mr-1 mb-1 ' + (alphabetFilter === letter ? 'bg-blue-500 text-white' : 'bg-white text-blue-500');
+          btn.addEventListener('click', () => {
+            alphabetFilter = letter;
+            tablePage = 1;
+            renderTable();
+          });
+          alphabetDiv.appendChild(btn);
+        }
+      }
+    }
   let currentPage = 1;
   let resultsPerPage = 10;
   let allTerms = [];
@@ -148,31 +295,28 @@
 
     // Fetch all terms for results (button click)
     async function fetchTerms() {
-      const out = document.getElementById('out');
-      out.textContent = 'Requesting…';
+      // All output is now handled by renderTable
       try {
         const resp = await fetch(`https://mil.psy.ntu.edu.tw:5000/terms?page=${currentPage}&per_page=${resultsPerPage}`);
-        let info = `HTTP ${resp.status} ${resp.statusText}\n`;
         const ct = resp.headers.get('content-type') || '';
-
         if (!resp.ok) {
-          const text = await resp.text();
-          out.textContent = info + '\n' + text;
           return;
         }
-
         if (ct.includes('application/json')) {
           const data = await resp.json();
-          out.textContent = info + '\n' + JSON.stringify(data, null, 2);
-        } else {
-          const text = await resp.text();
-          out.textContent = info + '\n' + text;
+          let terms = [];
+          if (Array.isArray(data)) {
+            terms = data;
+          } else if (data && Array.isArray(data.terms)) {
+            terms = data.terms;
+          }
+          tableData = terms.map(t => ({ term: t }));
+          tableColumns = [ { key: 'term', label: 'Term' } ];
+          tablePage = 1;
+          tableResultsPerPage = 10;
+          renderTable();
         }
-      } catch (err) {
-        document.getElementById('out').textContent =
-          'Error: ' + (err && err.message ? err.message : String(err)) +
-          '\n\nCommon causes:\n1) CORS not allowed by the server\n2) Opening this file via file:// instead of a local server\n3) Network/server issues';
-      }
+      } catch (err) {}
     }
 
     // Fetch term suggestions based on user input (real-time feedback)
@@ -205,33 +349,28 @@
     // Fetch specific term details
     async function fetchTermDetails() {
       const term = document.getElementById('term-input').value.trim();
-      const out = document.getElementById('out');
       if (!term) {
-        out.textContent = 'Please enter a term to fetch details.';
         return;
       }
-      out.textContent = 'Requesting…';
       try {
         const resp = await fetch(`https://mil.psy.ntu.edu.tw:5000/terms/${term}`);
-        let info = `HTTP ${resp.status} ${resp.statusText}\n`;
         const ct = resp.headers.get('content-type') || '';
-
         if (!resp.ok) {
-          const text = await resp.text();
-          out.textContent = info + '\n' + text;
           return;
         }
-
         if (ct.includes('application/json')) {
           const data = await resp.json();
-          out.textContent = info + '\n' + JSON.stringify(data, null, 2);
-        } else {
-          const text = await resp.text();
-          out.textContent = info + '\n' + text;
+          let related = [];
+          if (Array.isArray(data.related)) {
+            related = data.related;
+          }
+          tableData = related.map(r => ({ co_count: r.co_count, term: r.term }));
+          tableColumns = [ { key: 'co_count', label: 'Co-Count' }, { key: 'term', label: 'Term' } ];
+          tablePage = 1;
+          tableResultsPerPage = 10;
+          renderTable();
         }
-      } catch (err) {
-        out.textContent = 'Error: ' + (err && err.message ? err.message : String(err));
-      }
+      } catch (err) {}
     }
 
     // Multi-term study search with logic
@@ -257,10 +396,19 @@
     let studyResultsPerPage = 10;
 
     function renderStudyTable() {
+      // Hide terms/results table and controls, show study table and controls
+      document.getElementById('table-container').style.display = 'none';
+      document.getElementById('table-pagination').style.display = 'none';
+      document.getElementById('table-controls').style.display = 'none';
+      document.getElementById('study-table-container').style.display = '';
+      document.getElementById('study-pagination').style.display = '';
+      document.getElementById('study-controls').style.display = '';
       const container = document.getElementById('study-table-container');
       const pagination = document.getElementById('study-pagination');
+      const totalDiv = document.getElementById('total-results');
       container.innerHTML = '';
       pagination.innerHTML = '';
+      totalDiv.textContent = `Total results: ${studyResults.length}`;
       if (!studyResults || studyResults.length === 0) {
         container.innerHTML = '<div class="text-gray-500">No results to display.</div>';
         return;
@@ -285,62 +433,76 @@
       table += '</tbody></table>';
       container.innerHTML = table;
 
-      // Pagination controls
+      // Pagination controls (max 15 page buttons + ellipsis)
       const totalPages = Math.ceil(studyResults.length / studyResultsPerPage);
       if (totalPages > 1) {
-        for (let i = 1; i <= totalPages; i++) {
-          const btn = document.createElement('button');
-          btn.textContent = i;
-          btn.className = 'px-2 py-1 rounded border ' + (i === studyResultsPage ? 'bg-blue-500 text-white' : 'bg-white text-blue-500');
-          btn.addEventListener('click', () => {
-            studyResultsPage = i;
-            renderStudyTable();
-          });
-          pagination.appendChild(btn);
+        const maxButtons = 8;
+        let start = Math.max(1, studyResultsPage - 7);
+        let end = Math.min(totalPages, start + maxButtons - 1);
+        if (end - start + 1 < maxButtons && start > 1) {
+          start = Math.max(1, end - maxButtons + 1);
+        }
+
+        if (start > 1) {
+          createPageButton(1);
+          if (start > 2) pagination.appendChild(createEllipsis());
+        }
+
+        for (let i = start; i <= end; i++) {
+          createPageButton(i);
+        }
+
+        if (end < totalPages) {
+          if (end < totalPages - 1) pagination.appendChild(createEllipsis());
+          createPageButton(totalPages);
         }
       }
-    }
 
+      function createPageButton(i) {
+        const btn = document.createElement('button');
+        btn.textContent = i;
+        btn.className =
+          'px-2 py-1 rounded border ' +
+          (i === studyResultsPage ? 'bg-blue-500 text-white' : 'bg-white text-blue-500');
+        btn.addEventListener('click', () => {
+          studyResultsPage = i;
+          renderStudyTable();
+        });
+        pagination.appendChild(btn);
+      } 
+
+      function createEllipsis() {
+        const span = document.createElement('span');
+        span.textContent = '...';
+        span.className = 'px-2 text-gray-500';
+        return span;
+      }
+    }
     async function fetchMultiQueryStudies() {
       const query = buildMultiTermQuery();
-      const out = document.getElementById('out');
       document.getElementById('study-table-container').innerHTML = '';
       document.getElementById('study-pagination').innerHTML = '';
       if (!query) {
-        out.textContent = 'Please enter at least one term to search studies.';
         return;
       }
-      out.textContent = 'Requesting…';
       try {
         const resp = await fetch(`https://mil.psy.ntu.edu.tw:5000/query/${encodeURIComponent(query)}/studies`);
-        let info = `HTTP ${resp.status} ${resp.statusText}\n`;
         const ct = resp.headers.get('content-type') || '';
-
         if (!resp.ok) {
-          const text = await resp.text();
-          out.textContent = info + '\n' + text;
           return;
         }
-
         if (ct.includes('application/json')) {
           const data = await resp.json();
           if (Array.isArray(data.results)) {
             studyResults = data.results;
             studyResultsPage = 1;
             renderStudyTable();
-            out.textContent = '';
           } else {
             studyResults = [];
             renderStudyTable();
-            out.textContent = info + '\nNo results.';
           }
-        } else {
-          const text = await resp.text();
-          out.textContent = info + '\n' + text;
         }
-      } catch (err) {
-        out.textContent = 'Error: ' + (err && err.message ? err.message : String(err));
-      }
+      } catch (err) {}
     }
     // Results per page selector for study table
     document.getElementById('study-results-per-page').addEventListener('change', (e) => {
@@ -348,19 +510,22 @@
       studyResultsPage = 1;
       renderStudyTable();
     });
+    // Results per page selector for terms/results table
+    document.getElementById('table-results-per-page').addEventListener('change', (e) => {
+      tableResultsPerPage = parseInt(e.target.value, 10);
+      tablePage = 1;
+      renderTable();
+    });
 
 
     // Event listeners for buttons
     document.getElementById('fetch-terms-btn').addEventListener('click', () => {
-      document.getElementById('out').textContent = '';
       fetchTerms();
     });
     document.getElementById('fetch-term-btn').addEventListener('click', () => {
-      document.getElementById('out').textContent = '';
       fetchTermDetails();
     });
     document.getElementById('multi-fetch-query-btn').addEventListener('click', () => {
-      document.getElementById('out').textContent = '';
       fetchMultiQueryStudies();
     });
     // Real-time suggestions for each study search box
@@ -391,12 +556,6 @@
         });
       }
     }
-
-    // Change results per page
-    document.getElementById('results-per-page').addEventListener('change', (e) => {
-      resultsPerPage = e.target.value;
-      // Do not auto-fetch terms, just update value
-    });
 
   // On page load, fetch all terms for suggestions only (no results shown)
   fetchAllTermsForSuggestions().then(setupMultiTermSuggestions);
