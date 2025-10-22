@@ -348,6 +348,8 @@
 
     // Fetch specific term details
     async function fetchTermDetails() {
+      // Reset alphabet filter so associated terms are not filtered by previous state
+      alphabetFilter = '';
       const term = document.getElementById('term-input').value.trim();
       if (!term) {
         return;
@@ -376,14 +378,23 @@
     // Multi-term study search with logic
     function buildMultiTermQuery() {
       let query = '';
+      let lastLogic = '';
       for (let i = 0; i < 5; i++) {
         const term = document.getElementById(`study-term-${i}`).value.trim();
         if (term) {
           if (query) {
             const logic = document.getElementById(`logic-${i}`).value;
-            query += ` ${logic} `;
+            if (logic === 'or') {
+              // For 'or', wrap previous and current terms in parentheses for clarity
+              query = `(${query}) or (${term})`;
+              lastLogic = 'or';
+            } else {
+              query += ` ${logic} ${term}`;
+              lastLogic = logic;
+            }
+          } else {
+            query += term;
           }
-          query += term;
         }
       }
       return query;
@@ -480,6 +491,8 @@
     }
     async function fetchMultiQueryStudies() {
       const query = buildMultiTermQuery();
+      // Reset alphabet filter so study search is not affected by previous state
+      alphabetFilter = '';
       document.getElementById('study-table-container').innerHTML = '';
       document.getElementById('study-pagination').innerHTML = '';
       if (!query) {
