@@ -17,6 +17,8 @@
       <h2 class="text-xl font-semibold text-gray-800">Search Options</h2>
       <div class="mt-4">
         <div class="font-semibold text-gray-700 mb-2">Search all available terms</div>
+        <input id="all-terms-search-input" type="text" class="p-2 border border-gray-300 rounded w-full mb-2" placeholder="Type to search terms..." autocomplete="off" />
+        <ul id="all-terms-suggestions" class="bg-white border border-gray-300 rounded mt-1 max-h-32 overflow-y-auto absolute z-10"></ul>
         <button id="fetch-terms-btn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 focus:outline-none w-full">
           Fetch All Terms
         </button>
@@ -143,6 +145,7 @@
     let alphabetFilter = '';
     let sortKey = null;
     let sortOrder = 'desc'; // 'asc' or 'desc'
+    let showAlphabetFilter = false;
 
     function renderTable() {
       // Hide study table and controls, show terms/results table and controls
@@ -157,8 +160,8 @@
       const controls = document.getElementById('table-controls');
       const totalDiv = document.getElementById('total-results');
       const alphabetDiv = document.getElementById('alphabet-filter');
-      // Show alphabet filter only for Fetch All Terms (when tableColumns is just 'Term')
-      if (tableColumns.length === 1 && tableColumns[0].key === 'term') {
+      // Show alphabet filter only if showAlphabetFilter is true and tableColumns is just 'Term'
+      if (showAlphabetFilter && tableColumns.length === 1 && tableColumns[0].key === 'term') {
         alphabetDiv.style.display = '';
         renderAlphabetFilter();
       } else {
@@ -324,6 +327,7 @@
 
     // Fetch all terms for results (button click)
     async function fetchTerms() {
+      showAlphabetFilter = true;
       // Show loading indicator
       const container = document.getElementById('table-container');
       if (container) container.innerHTML = '<div class="text-gray-500">Loading...</div>';
@@ -694,6 +698,57 @@ window.sortStudyTableBy = function(key) {
   studyResultsPage = 1;
   renderStudyTable();
 };
+
+const allTermsSearchInput = document.getElementById('all-terms-search-input');
+const allTermsSuggestions = document.getElementById('all-terms-suggestions');
+if (allTermsSearchInput) {
+  allTermsSearchInput.addEventListener('input', debounce(async function() {
+    showAlphabetFilter = false;
+    const value = allTermsSearchInput.value.trim().toLowerCase();
+    allTermsSuggestions.innerHTML = '';
+    // If allTerms not loaded, fetch first
+    if (!allTerms || allTerms.length === 0) {
+      await fetchAllTermsForSuggestions();
+    }
+    if (value && allTerms.length > 0) {
+      // Show suggestions (only terms starting with input)
+      const filtered = allTerms.filter(term => term.toLowerCase().startsWith(value));
+      filtered.slice(0, 20).forEach(term => {
+        const suggestionItem = document.createElement('li');
+        suggestionItem.textContent = term;
+        suggestionItem.classList.add('p-2', 'cursor-pointer', 'hover:bg-gray-200');
+        suggestionItem.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          allTermsSearchInput.value = term;
+          allTermsSuggestions.innerHTML = '';
+          // Show results for selected term
+          tableData = [{ term: term }];
+          tableColumns = [ { key: 'term', label: 'Term' } ];
+          tablePage = 1;
+          tableResultsPerPage = 10;
+          renderTable();
+        });
+        allTermsSuggestions.appendChild(suggestionItem);
+      });
+      // Show filtered results in table
+      tableData = filtered.map(t => ({ term: t }));
+      tableColumns = [ { key: 'term', label: 'Term' } ];
+      tablePage = 1;
+      tableResultsPerPage = 10;
+      renderTable();
+    } else if (!value) {
+      allTermsSuggestions.innerHTML = '';
+      tableData = [];
+      tableColumns = [ { key: 'term', label: 'Term' } ];
+      tablePage = 1;
+      renderTable();
+    }
+  }, 400));
+  // Hide suggestions on blur
+  allTermsSearchInput.addEventListener('blur', function () {
+    setTimeout(() => { allTermsSuggestions.innerHTML = ''; }, 100);
+  });
+}
   </script>
 
 </body>
