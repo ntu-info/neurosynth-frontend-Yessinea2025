@@ -193,6 +193,10 @@
       const start = (tablePage - 1) * tableResultsPerPage;
       const end = Math.min(start + tableResultsPerPage, filteredData.length);
       const pageResults = filteredData.slice(start, end);
+      let instruction = '';
+      if (tableColumns.length === 2 && tableColumns[0].key === 'co_count' && tableColumns[1].key === 'term') {
+        instruction = '<div class="text-xs text-gray-500 mb-2">Click <span class="font-semibold">Co-Count</span> or <span class="font-semibold">Term</span> to sort <span style="font-size:1em;">⇅</span></div>';
+      }
       let table = '<table class="min-w-full text-sm text-left border"><thead><tr>';
       for (const col of tableColumns) {
         let sortIcon = '';
@@ -215,7 +219,7 @@
         table += '</tr>';
       }
       table += '</tbody></table>';
-      container.innerHTML = table;
+      container.innerHTML = instruction + table;
       // Pagination controls (dynamic, max 8 page buttons + ellipsis, word wrap)
       pagination.style.flexWrap = 'wrap';
       const totalPages = Math.ceil(filteredData.length / tableResultsPerPage);
