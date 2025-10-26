@@ -29,7 +29,7 @@
           <!-- Suggestions will appear here -->
         </ul>
         <button id="fetch-term-btn" class="bg-green-500 text-white px-4 py-2 rounded mt-2 w-full hover:bg-green-600 focus:outline-none">
-          Fetch Term Details
+          Fetch Associated Terms
         </button>
         <hr class="my-4 border-gray-300" />
       </div>
@@ -134,13 +134,16 @@
   </div>
 
   <script>
-    // Unified table rendering for Fetch All Terms and Fetch Term Details
+    // Unified table rendering for Fetch All Terms and Fetch Associated Terms
     let tableData = [];
     let tableColumns = [];
     let tablePage = 1;
     let tableResultsPerPage = 10;
 
     let alphabetFilter = '';
+    let sortKey = null;
+    let sortOrder = 'desc'; // 'asc' or 'desc'
+
     function renderTable() {
       // Hide study table and controls, show terms/results table and controls
       document.getElementById('study-table-container').style.display = 'none';
@@ -169,6 +172,19 @@
       if (alphabetFilter) {
         filteredData = tableData.filter(row => row.term && row.term[0] && row.term[0].toUpperCase() === alphabetFilter);
       }
+      // Sort if sortKey is set and tableColumns match associated terms
+      if (tableColumns.length === 2 && (sortKey === 'co_count' || sortKey === 'term')) {
+        filteredData = filteredData.slice().sort((a, b) => {
+          if (sortKey === 'co_count') {
+            return sortOrder === 'asc' ? a.co_count - b.co_count : b.co_count - a.co_count;
+          } else if (sortKey === 'term') {
+            if (a.term < b.term) return sortOrder === 'asc' ? -1 : 1;
+            if (a.term > b.term) return sortOrder === 'asc' ? 1 : -1;
+            return 0;
+          }
+          return 0;
+        });
+      }
       totalDiv.textContent = `Total results: ${filteredData.length}`;
       if (!filteredData || filteredData.length === 0) {
         container.innerHTML = '<div class="text-gray-500">No results to display.</div>';
@@ -179,7 +195,16 @@
       const pageResults = filteredData.slice(start, end);
       let table = '<table class="min-w-full text-sm text-left border"><thead><tr>';
       for (const col of tableColumns) {
-        table += `<th class="border px-2 py-1">${col.label}</th>`;
+        let sortIcon = '';
+        if (tableColumns.length === 2 && (col.key === 'co_count' || col.key === 'term')) {
+          sortIcon = ' <span style="font-size:1em;">⇅</span>';
+          if (sortKey === col.key) {
+            sortIcon = sortOrder === 'asc' ? ' ▲' : ' ▼';
+          }
+          table += `<th class="border px-2 py-1 cursor-pointer select-none" onclick="window.sortTableBy('${col.key}')">${col.label}${sortIcon}</th>`;
+        } else {
+          table += `<th class="border px-2 py-1">${col.label}</th>`;
+        }
       }
       table += '</tr></thead><tbody>';
       for (const row of pageResults) {
@@ -295,7 +320,9 @@
 
     // Fetch all terms for results (button click)
     async function fetchTerms() {
-      // All output is now handled by renderTable
+      // Show loading indicator
+      const container = document.getElementById('table-container');
+      if (container) container.innerHTML = '<div class="text-gray-500">Loading...</div>';
       try {
         const resp = await fetch(`https://mil.psy.ntu.edu.tw:5000/terms?page=${currentPage}&per_page=${resultsPerPage}`);
         const ct = resp.headers.get('content-type') || '';
@@ -346,11 +373,13 @@
       });
     }
 
-    // Fetch specific term details
+    // Show loading for term details
     async function fetchTermDetails() {
       // Reset alphabet filter so associated terms are not filtered by previous state
       alphabetFilter = '';
       const term = document.getElementById('term-input').value.trim();
+      const container = document.getElementById('table-container');
+      if (container) container.innerHTML = '<div class="text-gray-500">Loading...</div>';
       if (!term) {
         return;
       }
@@ -406,6 +435,9 @@
     let studyResultsPage = 1;
     let studyResultsPerPage = 10;
 
+    let studySortKey = null;
+    let studySortOrder = 'asc'; // 'asc' or 'desc'
+
     function renderStudyTable() {
       // Hide terms/results table and controls, show study table and controls
       document.getElementById('table-container').style.display = 'none';
@@ -424,14 +456,42 @@
         container.innerHTML = '<div class="text-gray-500">No results to display.</div>';
         return;
       }
+      // Show sort instruction for study table
+      container.innerHTML += '<div class="text-xs text-gray-500 mb-2">Click <span class="font-semibold">Title</span>, <span class="font-semibold">Authors</span>, <span class="font-semibold">Journal</span>, or <span class="font-semibold">Year</span> to sort <span style="font-size:1em;">⇅</span></div>';
+
+      // Sort studyResults if studySortKey is set
+      let sortedResults = studyResults;
+      if (studySortKey) {
+        sortedResults = studyResults.slice().sort((a, b) => {
+          if (studySortKey === 'year') {
+            return studySortOrder === 'asc' ? (a.year - b.year) : (b.year - a.year);
+          } else {
+            const aVal = (a[studySortKey] || '').toString().toLowerCase();
+            const bVal = (b[studySortKey] || '').toString().toLowerCase();
+            if (aVal < bVal) return studySortOrder === 'asc' ? -1 : 1;
+            if (aVal > bVal) return studySortOrder === 'asc' ? 1 : -1;
+            return 0;
+          }
+        });
+      }
+
       const start = (studyResultsPage - 1) * studyResultsPerPage;
-      const end = Math.min(start + studyResultsPerPage, studyResults.length);
-      const pageResults = studyResults.slice(start, end);
+      const end = Math.min(start + studyResultsPerPage, sortedResults.length);
+      const pageResults = sortedResults.slice(start, end);
       let table = '<table class="min-w-full text-sm text-left border"><thead><tr>';
-      table += '<th class="border px-2 py-1">Title</th>';
-      table += '<th class="border px-2 py-1">Authors</th>';
-      table += '<th class="border px-2 py-1">Journal</th>';
-      table += '<th class="border px-2 py-1">Year</th>';
+      const studyCols = [
+        { key: 'title', label: 'Title' },
+        { key: 'authors', label: 'Authors' },
+        { key: 'journal', label: 'Journal' },
+        { key: 'year', label: 'Year' }
+      ];
+      for (const col of studyCols) {
+        let sortIcon = ' <span style="font-size:1em;">⇅</span>';
+        if (studySortKey === col.key) {
+          sortIcon = studySortOrder === 'asc' ? ' ▲' : ' ▼';
+        }
+        table += `<th class="border px-2 py-1 cursor-pointer select-none" onclick="window.sortStudyTableBy('${col.key}')">${col.label}${sortIcon}</th>`;
+      }
       table += '</tr></thead><tbody>';
       for (const row of pageResults) {
         table += `<tr>
@@ -442,7 +502,7 @@
         </tr>`;
       }
       table += '</tbody></table>';
-      container.innerHTML = table;
+      container.innerHTML += table;
 
       // Pagination controls (max 15 page buttons + ellipsis)
       const totalPages = Math.ceil(studyResults.length / studyResultsPerPage);
@@ -489,11 +549,12 @@
         return span;
       }
     }
+    // Show loading for multi-term study search
     async function fetchMultiQueryStudies() {
-      const query = buildMultiTermQuery();
-      // Reset alphabet filter so study search is not affected by previous state
       alphabetFilter = '';
-      document.getElementById('study-table-container').innerHTML = '';
+      const query = buildMultiTermQuery();
+      const container = document.getElementById('study-table-container');
+      if (container) container.innerHTML = '<div class="text-gray-500">Loading...</div>';
       document.getElementById('study-pagination').innerHTML = '';
       if (!query) {
         return;
@@ -572,6 +633,63 @@
 
   // On page load, fetch all terms for suggestions only (no results shown)
   fetchAllTermsForSuggestions().then(setupMultiTermSuggestions);
+  // Debounce utility
+function debounce(fn, delay) {
+  let timer = null;
+  return function(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
+// Real-time AJAX for term details
+const termInput = document.getElementById('term-input');
+if (termInput) {
+  termInput.addEventListener('input', debounce(function() {
+    const value = termInput.value.trim();
+    if (value) {
+      fetchTermDetails();
+    }
+  }, 400));
+}
+
+// Real-time AJAX for multi-term study search
+for (let i = 0; i < 5; i++) {
+  const input = document.getElementById(`study-term-${i}`);
+  if (input) {
+    input.addEventListener('input', debounce(function() {
+      // Only trigger if at least one term is entered
+      const query = buildMultiTermQuery();
+      if (query) {
+        fetchMultiQueryStudies();
+      }
+    }, 400));
+  }
+}
+
+// Sorting handler (global for inline onclick)
+window.sortTableBy = function(key) {
+  if (sortKey === key) {
+    sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey = key;
+    sortOrder = key === 'co_count' ? 'desc' : 'asc';
+  }
+  tablePage = 1;
+  renderTable();
+};
+
+// Sorting handler for study table (global for inline onclick)
+window.sortStudyTableBy = function(key) {
+  if (studySortKey === key) {
+    studySortOrder = studySortOrder === 'asc' ? 'desc' : 'asc';
+  } else {
+    studySortKey = key;
+    studySortOrder = key === 'year' ? 'desc' : 'asc';
+  }
+  studyResultsPage = 1;
+  renderStudyTable();
+};
   </script>
 
 </body>
